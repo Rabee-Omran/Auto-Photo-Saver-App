@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Auto Photo Saver
+Comment=Automatically save photos from network
+Exec=auto_photo_saver_app
+Icon=auto_photo_saver_app
+Terminal=false
+Type=Application
+Categories=Utility;
+StartupNotify=true 
