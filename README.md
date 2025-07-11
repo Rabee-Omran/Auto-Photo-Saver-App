@@ -1,27 +1,30 @@
 # 📸 Auto Photo Saver App
 
-A cross-platform Flutter application that automatically downloads and saves photos from a Django backend to your device's gallery. The app features background processing, network monitoring, and a clean, modern UI.
+A cross-platform Flutter application that automatically downloads and saves photos from a Django backend to your device's gallery. The app features **real-time WebSocket updates**, background processing, network monitoring, and a clean, modern UI.
 
 ## 🌟 Features
 
 ### 📱 Mobile App (Flutter)
+- **⚡ Real-time WebSocket Updates**: Instant photo notifications via WebSocket connection
 - **🔄 Automatic Photo Download**: Background service downloads new photos every 15 minutes
-- **📶 Network Monitoring**: Only downloads on WiFi/Ethernet connections
+- **📶 Smart Network Monitoring**: Only connects on WiFi/Ethernet, disconnects on mobile/offline
 - **🌍 Multi-language Support**: English, German, and Arabic localization
 - **🌙 Dark/Light Theme**: Automatic theme switching with user preference
 - **📱 Cross-platform**: Works on Android, iOS, Web, Windows, macOS, and Linux
-- **⚡ Real-time Updates**: Manual refresh with network status indicator
 - **💾 Local Storage**: Saves photos to device gallery or downloads folder
 - **🔧 Settings Management**: User-configurable background fetch settings
 - **📥 Background Fetch**: Continuously monitors for new images and downloads them automatically
-- **🆔 Photo ID Tracking**: Uses unique photo IDs to ensure only new photos are downloaded to prevents downloading duplicate photos
+- **🆔 Photo ID Tracking**: Uses unique photo IDs to ensure only new photos are downloaded
+- **🔌 WebSocket Status Indicator**: Real-time connection status with visual feedback
 
-### 🖥️ Backend API (Django)
+### 🖥️ Backend API (Django + WebSocket)
 - **📤 Photo Upload**: RESTful API for uploading photos
 - **🖼️ Image Management**: Single photo storage with automatic replacement
 - **📊 File Information**: Tracks file size, original filename, and upload timestamp
 - **🔒 CORS Support**: Configured for cross-origin requests
 - **📁 Media Serving**: Direct file access with proper headers
+- **🔌 WebSocket Support**: Real-time photo notifications using Django Channels
+- **🚀 Production Ready**: Deployed on Railway with ASGI support
 
 ## 📸 Screenshots
 
@@ -42,11 +45,11 @@ The app runs seamlessly across all supported platforms with both light and dark 
 frontend-flutter/
 ├── lib/
 │   ├── core/                    # Core utilities and services
-│   │   ├── constants/          # App constants
+│   │   ├── constants/          # App constants (API/WebSocket URLs)
 │   │   ├── error/             # Error handling
 │   │   ├── extensions/        # Dart extensions
 │   │   ├── localization/      # Internationalization
-│   │   ├── network/           # Network utilities
+│   │   ├── network/           # Network utilities & WebSocket
 │   │   ├── router/            # Navigation
 │   │   ├── services/          # Background services
 │   │   ├── theme/             # UI theming
@@ -55,9 +58,9 @@ frontend-flutter/
 │   ├── di/                    # Dependency injection
 │   ├── features/              # Feature modules
 │   │   ├── photo/            # Photo management feature
-│   │   │   ├── data/         # Data layer
+│   │   │   ├── data/         # Data layer (WebSocket service)
 │   │   │   ├── domain/       # Business logic
-│   │   │   └── presentation/ # UI layer
+│   │   │   └── presentation/ # UI layer (BLoC/Cubit)
 │   │   └── settings/         # Settings feature
 │   ├── main.dart             # App entry point
 │   └── app.dart              # App configuration
@@ -71,15 +74,16 @@ frontend-flutter/
 └── pubspec.yaml              # Dependencies and configuration
 ```
 
-### Backend Architecture (Django REST)
+### Backend Architecture (Django REST + WebSocket)
 ```
 backend-django/
 ├── backend/                  # Django project settings
 │   ├── __init__.py
-│   ├── settings.py          # Django settings
+│   ├── settings.py          # Django settings (Channels config)
 │   ├── urls.py              # Main URL configuration
 │   ├── wsgi.py              # WSGI configuration
-│   └── asgi.py              # ASGI configuration
+│   ├── asgi.py              # ASGI configuration (WebSocket)
+│   └── routing.py           # WebSocket routing
 ├── photo/                   # Photo management app
 │   ├── __init__.py
 │   ├── models.py            # Database models
@@ -88,10 +92,14 @@ backend-django/
 │   ├── urls.py              # URL routing
 │   ├── admin.py             # Admin interface
 │   ├── apps.py              # App configuration
+│   ├── consumers.py         # WebSocket consumers
 │   └── migrations/          # Database migrations
 ├── media/                   # Uploaded files
 ├── manage.py                # Django management script
 ├── requirements.txt         # Python dependencies
+├── Procfile                 # Railway deployment config
+├── build.sh                 # Build script
+├── render.yaml              # Render deployment config
 └── db.sqlite3              # SQLite database
 ```
 
@@ -102,6 +110,8 @@ backend-django/
 - **Dart SDK** (3.8.1 or higher)
 - **Python** (3.8 or higher)
 - **Django** (5.2.3)
+- **Django Channels** (4.2.2)
+- **Daphne** (4.2.1)
 - **Android Studio** / **Xcode** (for mobile development)
 
 ### 📱 Frontend Setup (Flutter)
@@ -109,7 +119,7 @@ backend-django/
 1. **Clone the repository**
    ```bash
    git clone https://github.com/Rabee-Omran/Auto-Photo-Saver-App
-   cd final-project/frontend-flutter
+   cd Auto-Photo-Saver-App/frontend-flutter
    ```
 
 2. **Install dependencies**
@@ -117,7 +127,18 @@ backend-django/
    flutter pub get
    ```
 
-3. **Run the app**
+3. **Configure URLs** (in `lib/core/constants/constants.dart`)
+   ```dart
+   // For local development
+   static final String baseUrl = "http://localhost:8000";
+   static final String wsUrl = "ws://localhost:8000/ws/photo/";
+   
+   // For production (Railway)
+   static final String baseUrl = "https://auto-photo-saver-production.up.railway.app";
+   static final String wsUrl = "wss://auto-photo-saver-production.up.railway.app/ws/photo/";
+   ```
+
+4. **Run the app**
    ```bash
    # For development
    flutter run
@@ -129,6 +150,8 @@ backend-django/
    ```
 
 ### 🖥️ Backend Setup (Django)
+
+#### Local Development
 
 1. **Navigate to backend directory**
    ```bash
@@ -151,47 +174,112 @@ backend-django/
    python manage.py migrate
    ```
 
-5. **Start the server**
+5. **Start the server with WebSocket support**
    ```bash
+   # Using Daphne for WebSocket support
+   daphne backend.asgi:application --port 8000 --bind 0.0.0.0
+   
+   # Or using Django development server (no WebSocket)
    python manage.py runserver
    ```
+
+#### Production Deployment (Railway)
+
+The backend is already deployed on Railway and ready to use:
+
+**Production URLs:**
+- **API Base**: `https://auto-photo-saver-production.up.railway.app`
+- **WebSocket**: `wss://auto-photo-saver-production.up.railway.app/ws/photo/`
+- **API Endpoint**: `https://auto-photo-saver-production.up.railway.app/api/photo/`
 
 ## 📖 Usage
 
 ### 📱 Using the Mobile App
 
-1. **Launch the app** - The app will automatically start monitoring for new photos
-2. **Check network status** - Ensure you're connected to WiFi or Ethernet
-3. **Manual refresh** - Tap the refresh button to download the latest photo
-4. **View settings** - Access settings to configure background fetch preferences
-5. **Change language** - Switch between English, German, and Arabic
-6. **Toggle theme** - Switch between light and dark themes
+#### Local Development
+1. **Start the backend** (see Backend Setup above)
+2. **Update Flutter constants** to use localhost URLs
+3. **Launch the app** - Connect to local backend
+4. **Test WebSocket** - Upload photos and see real-time updates
+
+#### Production (Railway)
+1. **Update Flutter constants** to use Railway URLs
+2. **Launch the app** - Automatically connects to production backend
+3. **Real-time updates** - Photos appear instantly via WebSocket
+
+#### App Features
+- **Network Status**: Visual indicator shows WiFi/Ethernet connection
+- **WebSocket Status**: Real-time connection status with icons
+- **Auto-download**: Photos download automatically when network is available
+- **Manual refresh**: Tap refresh to fetch latest photo
+- **Settings**: Configure background fetch and theme preferences
 
 ### 🖥️ Using the Backend API
 
-The backend is hosted on PythonAnywhere at: `https://autosaverapptask.pythonanywhere.com`
+#### Production API (Railway)
 
-#### Upload a Photo
+**Upload a Photo**
 ```bash
 curl -X POST \
-  https://autosaverapptask.pythonanywhere.com/api/photo/ \
+  https://auto-photo-saver-production.up.railway.app/api/photo/ \
   -H 'Content-Type: multipart/form-data' \
   -F 'image=@/path/to/your/photo.jpg'
 ```
 
-#### Get Latest Photo
+**Get Latest Photo**
 ```bash
-curl -X GET https://autosaverapptask.pythonanywhere.com/api/photo/
+curl -X GET https://auto-photo-saver-production.up.railway.app/api/photo/
+```
+
+**WebSocket Connection**
+```javascript
+// JavaScript example
+const ws = new WebSocket('wss://auto-photo-saver-production.up.railway.app/ws/photo/');
+ws.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+  if (data.type === 'photo_update') {
+    console.log('New photo:', data.image);
+  }
+};
+```
+
+#### Local API (Development)
+
+**Upload a Photo**
+```bash
+curl -X POST \
+  http://localhost:8000/api/photo/ \
+  -H 'Content-Type: multipart/form-data' \
+  -F 'image=@/path/to/your/photo.jpg'
+```
+
+**Get Latest Photo**
+```bash
+curl -X GET http://localhost:8000/api/photo/
 ```
 
 #### API Response Format
 ```json
 {
   "id": 1,
-  "image": "https://autosaverapptask.pythonanywhere.com/media/photos/photo.jpg",
+  "image": "photo.jpg",
   "original_file_name": "photo.jpg",
   "file_size": 1024000,
   "uploaded_at": "2024-01-15T10:30:00Z"
+}
+```
+
+#### WebSocket Message Format
+```json
+{
+  "type": "photo_update",
+  "image": {
+    "id": 1,
+    "image": "photo.jpg",
+    "original_file_name": "photo.jpg",
+    "file_size": 1024000,
+    "uploaded_at": "2024-01-15T10:30:00Z"
+  }
 }
 ```
 
@@ -199,13 +287,17 @@ curl -X GET https://autosaverapptask.pythonanywhere.com/api/photo/
 
 ### Frontend Configuration
 
+#### WebSocket Settings
+- **Connection**: Automatic on WiFi/Ethernet
+- **Reconnection**: Automatic retry every 5 seconds
+- **Status Monitoring**: Real-time connection status
+- **Error Handling**: Graceful fallback to HTTP polling
+
 #### Background Service Settings
 - **Fetch Interval**: 15 minutes (configurable)
 - **Network Requirements**: WiFi/Ethernet only
 - **Battery Optimization**: Disabled for reliable background operation
-- **API Base URL**: `https://autosaverapptask.pythonanywhere.com/api/`
 - **Duplicate Prevention**: Uses photo ID comparison to avoid re-downloading
-- **Background Monitoring**: Continuous checking for new photos every 15 minutes
 
 #### Supported Platforms
 - ✅ Android (API 21+)
@@ -217,13 +309,20 @@ curl -X GET https://autosaverapptask.pythonanywhere.com/api/photo/
 
 ### Backend Configuration
 
-The backend is configured to run on PythonAnywhere with the following settings:
-- **Base URL**: `https://autosaverapptask.pythonanywhere.com`
+#### Production (Railway)
+- **Base URL**: `https://auto-photo-saver-production.up.railway.app`
+- **WebSocket URL**: `wss://auto-photo-saver-production.up.railway.app/ws/photo/`
 - **API Endpoint**: `/api/photo/`
-- **Admin Panel**: `/admin/`
-- **Media Files**: `/media/`
-- **Single Photo Storage**: Automatically replaces old photos with new uploads
-- **File Tracking**: Maintains original filename, file size, and upload timestamp
+- **ASGI Server**: Daphne for WebSocket support
+- **Static Files**: WhiteNoise for serving static files
+- **CORS**: Configured for cross-origin requests
+
+#### Local Development
+- **Base URL**: `http://localhost:8000`
+- **WebSocket URL**: `ws://localhost:8000/ws/photo/`
+- **API Endpoint**: `/api/photo/`
+- **Database**: SQLite (development)
+- **Media Files**: Local file system
 
 ## 🛠️ Development
 
@@ -234,6 +333,7 @@ The backend is configured to run on PythonAnywhere with the following settings:
 - **BLoC Pattern**: State management using flutter_bloc
 - **Dependency Injection**: GetIt for service locator pattern
 - **Routing**: GoRouter for navigation
+- **WebSocket**: Real-time communication with backend
 
 #### Key Dependencies
 - `flutter_bloc`: State management
@@ -244,41 +344,117 @@ The backend is configured to run on PythonAnywhere with the following settings:
 - `shared_preferences`: Local storage
 - `cached_network_image`: Image caching
 - `permission_handler`: Permission handling
+- `web_socket_channel`: WebSocket communication
+- `rxdart`: Reactive programming
 
 ### Backend Development
 
 #### Project Structure
 - **Django REST Framework**: API development
-- **SQLite Database**: Default database
-- **Media Files**: Local file storage
+- **Django Channels**: WebSocket support
+- **ASGI**: Asynchronous server gateway interface
+- **Daphne**: ASGI server for WebSocket support
 
 #### Key Dependencies
 - `Django`: Web framework
 - `djangorestframework`: API framework
+- `channels`: WebSocket support
+- `daphne`: ASGI server
 - `django-cors-headers`: CORS support
+- `whitenoise`: Static file serving
 - `Pillow`: Image processing
+
+## 🚀 Deployment
+
+### Backend Deployment (Railway)
+
+The backend is deployed on Railway using the Railway CLI:
+
+1. **Install Railway CLI**
+   ```bash
+   npm install -g @railway/cli
+   ```
+
+2. **Login to Railway**
+   ```bash
+   railway login
+   ```
+
+3. **Initialize project**
+   ```bash
+   cd backend-django
+   railway init
+   ```
+
+4. **Deploy**
+   ```bash
+   railway up
+   ```
+
+### Frontend Deployment
+
+#### Web Deployment
+```bash
+cd frontend-flutter
+flutter build web
+# Deploy the build/web folder to your hosting service
+```
+
+#### Mobile App Stores
+```bash
+# Android
+flutter build apk --release
+flutter build appbundle --release
+
+# iOS
+flutter build ios --release
+```
+
+## 🔄 Recent Updates
+
+### WebSocket Integration
+- ✅ Added real-time WebSocket support using Django Channels
+- ✅ Implemented WebSocket status monitoring in Flutter
+- ✅ Added automatic reconnection logic
+- ✅ Created WebSocket status indicator in UI
+
+### Production Deployment
+- ✅ Deployed backend to Railway with ASGI support
+- ✅ Configured Daphne server for WebSocket support
+- ✅ Added production-ready settings and environment variables
+- ✅ Implemented proper static file serving with WhiteNoise
+
+### Network Management
+- ✅ Smart network detection (WiFi/Ethernet only)
+- ✅ Automatic WebSocket connection/disconnection based on network
+- ✅ Graceful fallback to HTTP polling when WebSocket fails
+- ✅ Real-time network status indicators
+
+### Code Architecture
+- ✅ Clean separation of WebSocket and HTTP logic
+- ✅ Proper error handling and retry mechanisms
+- ✅ Dependency injection for WebSocket services
+- ✅ State management for connection status
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly (local and production)
+5. Submit a pull request
 
-## 🙏 Acknowledgments
+## 📄 License
 
-- Flutter team for the amazing framework
-- Django team for the robust backend framework
-- All contributors and maintainers
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 📞 Support
+## 🆘 Support
 
-If you encounter any issues or have questions:
-1. Check the [Issues](https://github.com/your-username/your-repo/issues) page
-2. Create a new issue with detailed information
-3. Contact the maintainers
+For support and questions:
+- Create an issue on GitHub
+- Check the deployment logs on Railway
+- Test WebSocket connection using browser developer tools
 
 ---
 
-**Made with ❤️ using Flutter & Django**
+**Happy coding! 🚀**
