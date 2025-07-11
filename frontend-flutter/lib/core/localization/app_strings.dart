@@ -56,4 +56,6 @@ class AppStrings {
       AppLocalizations.of(context).translate('something_went_wrong');
   String get imageSavedToGallery =>
       AppLocalizations.of(context).translate('image_saved_to_gallery');
+  String get realTimeInfo =>
+      AppLocalizations.of(context).translate('real_time_info');
 }

@@ -4,6 +4,7 @@ import '../../di/di.dart';
 import '../../features/photo/presentation/bloc/photo_cubit.dart';
 import '../../features/photo/presentation/pages/home_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../network/websocket_cubit.dart';
 import '../theme/theme_cubit.dart';
 
 class Routes {
@@ -16,8 +17,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: Routes.home,
       name: 'home',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<PhotoCubit>(),
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => sl<PhotoCubit>()),
+          BlocProvider(create: (context) => sl<WebSocketCubit>()),
+        ],
         child: const HomePage(),
       ),
     ),

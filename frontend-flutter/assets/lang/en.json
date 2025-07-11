@@ -28,5 +28,6 @@
   "latest_upload": "Latest Upload",
   "image_saved_to_downloads": "Image saved to Downloads",
   "image_saved_to_gallery": "Image saved to Gallery",
-  "something_went_wrong": "Something went wrong, please try again later."
+  "something_went_wrong": "Something went wrong, please try again later.",
+  "real_time_info": "The app updates automatically in real time. Please wait for new photos."
 } 

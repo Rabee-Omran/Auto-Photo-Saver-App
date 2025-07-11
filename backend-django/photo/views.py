@@ -9,6 +9,8 @@ from .serializers import SinglePhotoSerializer
 from django.http import FileResponse, Http404
 from django.conf import settings
 import os
+from channels.layers import get_channel_layer # type: ignore
+from asgiref.sync import async_to_sync
 
 class SinglePhotoView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -23,16 +25,31 @@ class SinglePhotoView(APIView):
     def post(self, request, format=None):
         if 'image' not in request.FILES or not request.FILES['image']:
             return Response({'detail': 'No image file provided.'}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = SinglePhotoSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            SinglePhoto.objects.all().delete()
-            instance = serializer.save()
-            instance.original_file_name = request.FILES['image'].name
-            instance.save()
-            response_serializer = SinglePhotoSerializer(instance, context={'request': request})
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        print(serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Delete existing photos
+        SinglePhoto.objects.all().delete()
+        
+        # Create new photo with image
+        image_file = request.FILES['image']
+        photo = SinglePhoto.objects.create(
+            image=image_file,
+            original_file_name=image_file.name
+        )
+        
+        # Serialize and return response
+        serializer = SinglePhotoSerializer(photo, context={'request': request})
+        
+        # Notify WebSocket clients
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'photo_updates',
+            {
+                'type': 'photo_update',
+                'image': serializer.data,
+            }
+        )
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 def serve_media_with_cors(request, path):

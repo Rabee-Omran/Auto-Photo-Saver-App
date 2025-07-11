@@ -28,5 +28,6 @@
   "latest_upload": "Letzter Upload",
   "image_saved_to_downloads": "Bild im Download-Ordner gespeichert",
   "image_saved_to_gallery": "Bild in der Galerie gespeichert",
-  "something_went_wrong": "Etwas ist schief gelaufen, bitte versuchen Sie es später erneut."
+  "something_went_wrong": "Etwas ist schief gelaufen, bitte versuchen Sie es später erneut.",
+  "real_time_info": "The app updates automatically in real time. Please wait for new photos."
 } 

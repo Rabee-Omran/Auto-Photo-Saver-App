@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:auto_photo_saver_app/core/network/network_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,6 +13,7 @@ import '../widgets/photo_card.dart';
 import '../widgets/empty_state.dart';
 import '../../../../core/widgets/loading_widget.dart';
 import '../../../../core/widgets/error_widget.dart';
+import '../widgets/photo_websocket_status_icon.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -65,6 +65,7 @@ class _HomePageState extends State<HomePage> {
                 appBar: AppBar(
                   title: Text(l10n.appTitle),
                   actions: [
+                    PhotoWebSocketStatusIcon(),
                     SizedBox(width: 12),
                     if (!kIsWeb) ...[NetworkStatusIcon(), SizedBox(width: 12)],
                     IconButton(
@@ -72,37 +73,36 @@ class _HomePageState extends State<HomePage> {
                       tooltip: l10n.settings,
                       onPressed: () => context.push(Routes.settings),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      tooltip: l10n.latestDownload,
-                      onPressed:
-                          (networkState.type == NetworkType.wifi ||
-                              networkState.type == NetworkType.ethernet)
-                          ? () => context.read<PhotoCubit>().fetchLatestPhoto()
-                          : null,
-                    ),
                     SizedBox(width: 12),
                   ],
                 ),
                 body: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: BlocBuilder<PhotoCubit, PhotoState>(
-                    builder: (context, photoState) {
-                      if (photoState is PhotoLoaded) {
-                        final photo = photoState.photo;
-                        return SingleChildScrollView(
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: BlocBuilder<PhotoCubit, PhotoState>(
+                          builder: (context, photoState) {
+                            if (photoState.photo != null) {
+                              final photo = photoState.photo;
+                              return SingleChildScrollView(
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
 
-                              children: [PhotoCard(photo: photo)],
-                            ),
-                          ),
-                        );
-                      } else {
-                        return Center(child: _mapStateToWidget(photoState));
-                      }
-                    },
+                                    children: [PhotoCard(photo: photo!)],
+                                  ),
+                                ),
+                              );
+                            } else {
+                              return Center(
+                                child: _mapStateToWidget(photoState),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -118,8 +118,8 @@ class _HomePageState extends State<HomePage> {
       return const LoadingWidget();
     } else if (photoState is PhotoErrorState) {
       return CustomErrorWidget(
-        message: photoState.message,
-        onRetry: () => context.read<PhotoCubit>().fetchLatestPhoto(),
+        message: context.l10n.realTimeInfo,
+        onRetry: null,
       );
     } else if (photoState is PhotoNoInternetState) {
       return const EmptyState();

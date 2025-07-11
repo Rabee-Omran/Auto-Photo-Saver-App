@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: auto-photo-saver-backend
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "daphne backend.asgi:application --port $PORT --bind 0.0.0.0"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true 
