@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/network/websocket_cubit.dart';
+import '../bloc/websocket_cubit/websocket_cubit.dart';
 import '../../../photo/data/services/photo_websocket_service.dart';
 
 class PhotoWebSocketStatusIcon extends StatelessWidget {

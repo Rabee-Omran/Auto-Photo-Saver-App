@@ -1,3 +1,5 @@
+import 'package:auto_photo_saver_app/core/constants/constants.dart';
+
 import '../../domain/entities/photo.dart';
 
 class PhotoModel {
@@ -18,7 +20,7 @@ class PhotoModel {
   factory PhotoModel.fromJson(Map<String, dynamic> json) {
     return PhotoModel(
       id: json['id'],
-      image: json['image'],
+      image: Constants.mediaUrl + json['image'],
       originalFileName: json['original_file_name'],
       fileSize: json['file_size'],
       uploadedAt: DateTime.parse(json['uploaded_at']).toLocal(),

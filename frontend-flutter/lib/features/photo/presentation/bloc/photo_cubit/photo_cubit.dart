@@ -5,30 +5,37 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:auto_photo_saver_app/core/services/shared_prefs_service.dart';
-import '../../domain/entities/photo.dart';
-import '../../../../core/utils/gallery_saver_utils.dart';
+import '../../../../../core/error/failure.dart';
+import '../../../domain/entities/photo.dart';
+import '../../../../../core/utils/gallery_saver_utils.dart';
 import 'dart:async';
-import '../../../../core/network/network_info.dart';
-import '../../data/services/photo_websocket_service.dart';
-import '../../data/models/photo_model.dart';
+import '../../../../../core/network/network_info.dart';
+import '../../../data/services/photo_websocket_service.dart';
+import '../../../data/models/photo_model.dart';
+import '../../../domain/usecases/get_latest_photo.dart';
 
 part 'photo_state.dart';
 
 class PhotoCubit extends Cubit<PhotoState> {
   final SharedPrefsService sharedPrefsService;
   final PhotoWebSocketService webSocketService;
+  final GetLatestPhoto getLatestPhoto;
   int? _lastPhotoId;
   Photo? _latestPhoto;
   StreamSubscription<PhotoModel>? _wsSubscription;
   StreamSubscription<String>? _wsErrorSubscription;
 
-  PhotoCubit(this.sharedPrefsService, this.webSocketService)
-    : super(PhotoInitial());
+  PhotoCubit(
+    this.sharedPrefsService,
+    this.webSocketService,
+    this.getLatestPhoto,
+  ) : super(PhotoInitial());
 
   void updateNetworkType(NetworkType type) {
     debugPrint('Network type changed to: $type');
     if (type == NetworkType.wifi || type == NetworkType.ethernet) {
       _startWebSocket();
+      _fetchLatestPhoto(); // Fetch latest photo when network becomes available
     } else {
       _stopWebSocket();
     }
@@ -93,6 +100,39 @@ class PhotoCubit extends Cubit<PhotoState> {
     webSocketService.disconnect();
   }
 
+  Future<void> _fetchLatestPhoto({bool emitLoading = true}) async {
+    if (emitLoading) {
+      emit(PhotoLoading());
+    }
+    final result = await getLatestPhoto();
+    result.fold((failure) => emit(_mapFailureToState(failure)), (photo) async {
+      if (_lastPhotoId == photo.id) {
+        final lastDownloadDate = sharedPrefsService.lastDownloadDate;
+        emit(PhotoLoaded(photo.copyWith(lastDownloadDate: lastDownloadDate)));
+        return;
+      }
+
+      _lastPhotoId = photo.id;
+      final lastDownloadDate = DateTime.now();
+
+      try {
+        final localPath = await GallerySaverUtils.saveImageToGallery(
+          photo.image,
+          photo.originalFileName,
+        );
+
+        await _saveLastPhoto(photo, localPath ? photo.image : null);
+
+        if (localPath) {
+          emit(PhotoImageSaved());
+        }
+      } catch (e) {
+        emit(PhotoErrorState(message: Constants.serverErrorMessage));
+      }
+      emit(PhotoLoaded(photo.copyWith(lastDownloadDate: lastDownloadDate)));
+    });
+  }
+
   Future<void> loadLastPhotoFromStorage() async {
     final prefs = sharedPrefsService;
     final id = prefs.lastPhotoId;
@@ -127,6 +167,13 @@ class PhotoCubit extends Cubit<PhotoState> {
     await prefs.setLastPhotoUploadedAt(photo.uploadedAt.toIso8601String());
     await prefs.setLastPhotoFileSize(photo.fileSize);
     await prefs.setLastDownloadDate(DateTime.now());
+  }
+
+  PhotoState _mapFailureToState(Failure failure) {
+    if (failure is NoInternetConnectionFailure) {
+      return PhotoNoInternetState();
+    }
+    return PhotoErrorState(message: failure.message);
   }
 
   @override

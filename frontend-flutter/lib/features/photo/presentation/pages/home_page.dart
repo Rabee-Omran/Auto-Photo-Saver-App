@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/extensions/localization_extension.dart';
+import '../../../../core/network/network_info.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/utils/toast_utils.dart';
-import '../bloc/photo_cubit.dart';
+import '../bloc/photo_cubit/photo_cubit.dart';
 import '../../../../core/network/network_cubit.dart';
 import '../widgets/network_status_icon.dart';
 import '../widgets/photo_card.dart';
@@ -65,7 +66,17 @@ class _HomePageState extends State<HomePage> {
                 appBar: AppBar(
                   title: Text(l10n.appTitle),
                   actions: [
-                    PhotoWebSocketStatusIcon(),
+                    SizedBox(width: 12),
+                    BlocBuilder<NetworkCubit, NetworkState>(
+                      builder: (context, state) {
+                        if (state.type == NetworkType.wifi ||
+                            state.type == NetworkType.ethernet) {
+                          return PhotoWebSocketStatusIcon();
+                        } else {
+                          return const SizedBox.shrink();
+                        }
+                      },
+                    ),
                     SizedBox(width: 12),
                     if (!kIsWeb) ...[NetworkStatusIcon(), SizedBox(width: 12)],
                     IconButton(

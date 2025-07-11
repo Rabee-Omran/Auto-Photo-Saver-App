@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../features/photo/data/services/photo_websocket_service.dart';
+import '../../../data/services/photo_websocket_service.dart';
 
 class WebSocketCubit extends Cubit<WebSocketStatus> {
   final PhotoWebSocketService webSocketService;

@@ -8,7 +8,7 @@ import '../models/photo_model.dart';
 enum WebSocketStatus { connected, disconnected, connecting, error }
 
 class PhotoWebSocketService {
-  static const String _wsUrl = 'ws://localhost:8000/ws/photo/';
+  static final String _wsUrl = Constants.wsUrl;
   WebSocketChannel? _channel;
   final _errorController = StreamController<String>.broadcast();
   final BehaviorSubject<WebSocketStatus> _statusController =
